@@ -8,6 +8,11 @@ const logger = require('../utils/logger');
 
 const redis = new Redis(process.env.REDIS_URL, {
   retryStrategy(times) {
+    const isOptional = process.env.REDIS_OPTIONAL === 'true';
+    if (isOptional && times >= 3) {
+      logger.warn(`[Redis] Giving up reconnect after ${times} attempts (REDIS_OPTIONAL=true)`);
+      return null; // Stop retrying
+    }
     const delay = Math.min(times * 200, 5000);
     logger.warn(`[Redis] Reconnecting in ${delay}ms (attempt ${times})`);
     return delay;

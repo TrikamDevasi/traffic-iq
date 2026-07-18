@@ -6,94 +6,70 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const { requestLogger } = require('./utils/logger');
+const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
-// ── Security Middleware ──────────────────────────────────────────
+// -- Security Middleware -----------------------------------------
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: process.env.CLIENT_URL || ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── Rate Limiting ────────────────────────────────────────────────
-
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
-
+// -- Rate Limiting -----------------------------------------------
+// Baseline general limiter on all /api/ routes.
+// Stricter per-route limiters are applied inside route files.
+const { generalLimiter } = require('./middleware/rateLimiter.middleware');
 app.use('/api/', generalLimiter);
 
-// ── Request Logging ──────────────────────────────────────────────
+// Parse cookies (refresh token httpOnly cookie)
+app.use(cookieParser());
 
+// -- Request Logging --------------------------------------------
 app.use(requestLogger);
 
-// ── Health Check Endpoint ────────────────────────────────────────
-
+// -- Health Check (public, no auth) ----------------------------
 const { isConnected: isMongoConnected } = require('./config/db');
-const { isRedisConnected } = require('./config/redis');
-const { isMQTTConnected } = require('./config/mqtt');
+const { isRedisConnected }              = require('./config/redis');
+const { isMQTTConnected }               = require('./config/mqtt');
 
-app.get('/health', async (req, res) => {
+app.get('/health', (req, res) => {
   const mongoOk = isMongoConnected();
   const redisOk = isRedisConnected();
-  const mqttOk = isMQTTConnected();
-
+  const mqttOk  = isMQTTConnected();
   const allHealthy = mongoOk && redisOk && mqttOk;
 
-  const status = {
+  res.status(allHealthy ? 200 : 503).json({
     status: allHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     services: {
-      mongodb: {
-        status: mongoOk ? 'connected' : 'disconnected',
-      },
-      redis: {
-        status: redisOk ? 'connected' : 'disconnected',
-      },
-      mqtt: {
-        status: mqttOk ? 'connected' : 'disconnected',
-      },
+      mongodb: { status: mongoOk ? 'connected' : 'disconnected' },
+      redis:   { status: redisOk ? 'connected' : 'disconnected' },
+      mqtt:    { status: mqttOk  ? 'connected' : 'disconnected' },
     },
     environment: process.env.NODE_ENV || 'development',
-  };
-
-  res.status(allHealthy ? 200 : 503).json(status);
+  });
 });
 
-// ── API Routes (placeholder — will be wired in Day 2-3) ──────────
+// -- API Routes -------------------------------------------------
+// All routes are combined in routes/index.js
+app.use('/api/v1', require('./routes/index'));
 
+// Convenience ping (no auth)
 app.get('/api/v1/ping', (req, res) => {
   res.json({ message: 'TrafficIQ API is running', timestamp: new Date().toISOString() });
 });
 
-// ── 404 Handler ──────────────────────────────────────────────────
-
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found', path: req.originalUrl });
-});
-
-// ── Global Error Handler ─────────────────────────────────────────
-
-app.use((err, req, res, _next) => {
-  const logger = require('./utils/logger');
-  logger.error(`Unhandled error: ${err.message}`, { stack: err.stack });
-
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message,
-  });
-});
+// -- 404 + Global Error Handler ---------------------------------
+// Must be AFTER all routes
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 module.exports = app;

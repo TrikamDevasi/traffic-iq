@@ -10,6 +10,10 @@ const logger = require('../utils/logger');
 let client = null;
 let isConnectedFlag = false;
 
+// Registered by mqtt.service after initialization
+// Allows config/mqtt.js (infrastructure) to stay decoupled from business logic
+let onTrafficReading = null;
+
 // Topic patterns (using + for single-level wildcard)
 const SUBSCRIBE_TOPICS = [
   'traffic/+/reading',
@@ -64,11 +68,21 @@ function connectMQTT() {
     client.on('error', (err) => {
       logger.error(`[MQTT] Client error: ${err.message}`);
       isConnectedFlag = false;
+      if (process.env.MQTT_OPTIONAL === 'true') {
+        logger.warn('[MQTT] Giving up on broker (MQTT_OPTIONAL=true)');
+        client.end();
+        resolve(); // ensure we don't block boot
+      }
     });
 
     client.on('offline', () => {
       logger.warn('[MQTT] Client offline');
       isConnectedFlag = false;
+      if (process.env.MQTT_OPTIONAL === 'true') {
+        logger.warn('[MQTT] Giving up on broker (MQTT_OPTIONAL=true)');
+        client.end();
+        resolve();
+      }
     });
 
     client.on('reconnect', () => {
@@ -102,8 +116,15 @@ function handleIncomingMessage(topic, message) {
   // parts[2] = "reading" or "command"
 
   if (parts[0] === 'traffic' && parts[2] === 'reading') {
-    logger.info(`[MQTT] Traffic reading from ${parts[1]}: ${JSON.stringify(message)}`);
-    // Integration with data pipeline will be wired in Day 2
+    logger.debug(`[MQTT] Traffic reading from ${parts[1]}: ${JSON.stringify(message)}`);
+    // Delegate to mqtt.service if it has been initialized
+    if (typeof onTrafficReading === 'function') {
+      onTrafficReading(parts[1], message).catch((err) => {
+        logger.error(`[MQTT] handleTrafficReading error: ${err.message}`);
+      });
+    } else {
+      logger.warn('[MQTT] onTrafficReading not registered yet — reading dropped');
+    }
   } else if (parts[0] === 'signal' && parts[2] === 'command') {
     logger.info(`[MQTT] Signal command for ${parts[1]}: ${JSON.stringify(message)}`);
   }
@@ -214,4 +235,7 @@ module.exports = {
   publishSignalCommand,
   testPubSub,
   isMQTTConnected,
+  // Settable by mqtt.service to register the traffic reading handler
+  get onTrafficReading() { return onTrafficReading; },
+  set onTrafficReading(fn) { onTrafficReading = fn; },
 };

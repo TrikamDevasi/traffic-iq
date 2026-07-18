@@ -1,0 +1,15 @@
+{
+  "name": "trafficiq-root",
+  "version": "1.0.0",
+  "description": "Root workspace orchestrator for TrafficIQ",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix trafficiq-backend",
+    "dev:frontend": "npm run dev --prefix trafficiq-frontend",
+    "dev:ml": "cd trafficiq-ml && python -m uvicorn main:app --reload --port 8000",
+    "dev": "concurrently -c \"cyan,magenta,yellow\" -n \"backend,frontend,ml\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ml\"",
+    "install:all": "npm install --prefix trafficiq-backend && npm install --prefix trafficiq-frontend && pip install -r trafficiq-ml/requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

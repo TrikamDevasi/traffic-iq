@@ -18,15 +18,16 @@ const { connectDB } = require('./src/config/db');
 const { connectRedis, isRedisConnected } = require('./src/config/redis');
 const { connectMQTT } = require('./src/config/mqtt');
 const { selfTest: redisSelfTest } = require('./src/services/redis.service');
+const { initSocketIO } = require('./src/services/socket.service');
+const { initMqttService, handleTrafficReading } = require('./src/services/mqtt.service');
 
 const PORT = process.env.PORT || 5000;
 
 // ── HTTP Server + Socket.IO ─────────────────────────────────────
 const server = http.createServer(app);
 
-// Socket.IO will be initialized in Day 2
-// const { Server } = require('socket.io');
-// const io = new Server(server, { cors: { origin: process.env.CLIENT_URL } });
+// Initialize Socket.IO on the HTTP server
+initSocketIO(server);
 
 // ── Bootstrap ────────────────────────────────────────────────────
 
@@ -57,15 +58,37 @@ async function startServer() {
   try {
     logger.info('[BOOT] Connecting to MQTT broker...');
     await connectMQTT();
+
+    // Wire MQTT service: warm intersection cache, start offline watchdog
+    const mqttHandlers = await initMqttService();
+
+    // Patch config/mqtt.js to delegate traffic readings to our service
+    // We do this by overriding the module-level handler via the event emitter
+    // exposed by config/mqtt — re-wire via the client's message event.
+    // The cleanest approach: re-export handleTrafficReading for mqtt.js to call.
+    // mqtt.js handleIncomingMessage already has the routing logic —
+    // we register our handler so it's called on each traffic/{id}/reading message.
+    require('./src/config/mqtt').onTrafficReading = mqttHandlers.handleTrafficReading;
+    logger.info('[BOOT] MQTT service handlers registered');
   } catch (err) {
     logger.warn(`[BOOT] MQTT unavailable — running in degraded mode: ${err.message}`);
   }
 
   // 4. Start HTTP server (always)
-  server.listen(PORT, () => {
+  const serverInst = server.listen(PORT, () => {
     logger.info(`[BOOT] TrafficIQ Backend running on port ${PORT}`);
     logger.info(`[BOOT] Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`[BOOT] Health check: http://localhost:${PORT}/health`);
+  });
+
+  serverInst.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`[BOOT] Port ${PORT} already in use. Stop the existing process or change PORT in .env`);
+      process.exit(1);
+    } else {
+      logger.error(`[BOOT] Server error: ${err.message}`);
+      process.exit(1);
+    }
   });
 }
 

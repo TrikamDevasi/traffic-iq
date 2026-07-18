@@ -1,0 +1,11 @@
+{
+    "scenario": "Test Async",
+    "duration": 400,
+    "n_intersections": 1,
+    "intersections": [
+        "INT-001"
+    ],
+    "obs_dim": 10,
+    "state_dim": 20,
+    "sumocfg_path": "./sim_configs\\Test Async.sumocfg"
+}

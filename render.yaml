@@ -1,0 +1,37 @@
+# Render Deployment Configuration
+# NOTE: Environment variables marked with `sync: false` must be manually
+# configured in the Render Dashboard under the Environment tab.
+# Refer to `trafficiq-backend/.env.example` for the required values.
+
+services:
+  - type: web
+    name: trafficiq-api
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: trafficiq-backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: MQTT_BROKER_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ML_SERVICE_URL
+        value: https://trafficiq-ml.onrender.com
+
+  - type: web
+    name: trafficiq-ml
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
+    rootDir: trafficiq-ml
+    envVars:
+      - key: YOLO_MODEL_PATH
+        value: yolov8n.pt

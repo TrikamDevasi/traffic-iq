@@ -1,0 +1,12 @@
+{
+    "scenario": "TestScenario",
+    "duration": 60,
+    "n_intersections": 2,
+    "intersections": [
+        "INT-01",
+        "INT-02"
+    ],
+    "obs_dim": 10,
+    "state_dim": 20,
+    "sumocfg_path": "./sim_configs\\TestScenario.sumocfg"
+}

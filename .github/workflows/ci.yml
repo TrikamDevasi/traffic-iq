@@ -1,0 +1,60 @@
+name: TrafficIQ CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: trafficiq-backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./trafficiq-backend
+      - name: Run Jest tests
+        run: npm test
+        working-directory: ./trafficiq-backend
+
+  ml-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        working-directory: ./trafficiq-ml
+      - name: Run Pytest
+        run: pytest test_main.py -v
+        working-directory: ./trafficiq-ml
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: trafficiq-frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./trafficiq-frontend
+      - name: Run Vitest tests
+        run: npm test
+        working-directory: ./trafficiq-frontend
