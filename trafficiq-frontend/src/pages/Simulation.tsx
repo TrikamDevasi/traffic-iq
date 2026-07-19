@@ -22,7 +22,7 @@ const Simulation = () => {
   const [elapsed, setElapsed] = useState(0);
 
   const [runSimulation, { isLoading: isStarting }] = useRunSimulationMutation();
-  const { data: runRes, error: runError, isFetching: isPolling } = useGetSimulationByIdQuery(activeRunId as string, {
+  const { data: runRes, error: _runError, isFetching: _isPolling } = useGetSimulationByIdQuery(activeRunId as string, {
     skip: !activeRunId,
     pollingInterval: activeRunId ? pollingInterval : 0
   });

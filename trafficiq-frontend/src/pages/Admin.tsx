@@ -17,8 +17,6 @@ import {
   Cpu, 
   Users, 
   Clock, 
-  ChevronRight,
-  AlertCircle,
   CheckCircle2,
   XCircle,
   Shield
@@ -198,7 +196,7 @@ const Admin = () => {
               loadingMessage="Loading audit logs..."
             >
               <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-700 before:to-transparent">
-                {auditLogs.map((log: any, idx: number) => (
+                {auditLogs.map((log: any, _idx: number) => (
                   <div key={log._id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-dark-panel bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10">
                       <Clock className="w-4 h-4" />

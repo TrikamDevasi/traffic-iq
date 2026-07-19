@@ -95,6 +95,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
+      </div>
     </AsyncBoundary>
   );
 };

@@ -84,7 +84,7 @@ export const apiSlice = createApi({
         method: 'PATCH',
       }),
       // Optimistic update for resolve
-      async onQueryStarted(id, { dispatch, queryFulfilled, getState }) {
+      async onQueryStarted(id, { dispatch, queryFulfilled, getState: _getState }) {
         const patchResultAll = dispatch(
           apiSlice.util.updateQueryData('getAlerts', undefined, (draft) => {
             const alert = draft?.data?.find((a: any) => a._id === id || a.id === id);
